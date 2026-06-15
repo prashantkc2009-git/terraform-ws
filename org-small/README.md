@@ -55,4 +55,4 @@ This directory contains the infrastructure-as-code (IaC) configuration for **Org
 
 ## Maintainers
 
-*   **Platform Engineering Team** (devops@company-small.io)
+*   **Terraform Practice** (prashant@chandrakar.in))
