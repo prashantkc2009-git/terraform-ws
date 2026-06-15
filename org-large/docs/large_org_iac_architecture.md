@@ -1,7 +1,7 @@
 # Enterprise IaC Architecture: Scalable Patterns for 300+ Applications
 
 **Document Metadata:**
-* **Version:** 1.4.0
+* **Version:** 1.5.0
 * **Status:** Under Review (Analysis & Operational Design Stage)
 * **Last Updated:** 2026-06-15
 
@@ -238,7 +238,47 @@ To ensure this framework supports a multi-region transactional FinTech scale, we
 
 ---
 
-## 6. Excluded or Partially Addressed Review Feedback
+## 6. Security & Enterprise Architecture Analysis Gaps & Remediation
+
+To address reviews from the Security Architect and Enterprise Architect, the following gaps are explicitly acknowledged and remediated in the target system design:
+
+### A. Security Architecture Gaps
+
+* **SG-1: Container Supply Chain (GAP-2) Details**:
+  * *Remediation*: Implement mandatory cryptographic image signing via **Cosign** in all application CI pipelines. EKS clusters deploy **Kyverno** as an admission controller to block deployment of unsigned or un-scanned containers. Enforce automated vulnerability scanning using **Trivy** in CI/CD, outputting **CycloneDX SBOMs** archived in a central registry.
+* **SG-2: Runtime Threat Detection**:
+  * *Remediation*: Standardize on **AWS GuardDuty** (enabled organization-wide, including EKS audit log monitoring) and centralize alerts in **AWS Security Hub**. Deploy kernel-level runtime security scanning (e.g., **Falco** or **Tetragon**) inside all EKS clusters to detect anomalous process executions or unexpected container escapes in real-time.
+* **SG-3: Backup Validation & Restore Testing**:
+  * *Remediation*: Standardize backups via AWS Backup with vault locks. Implement automated monthly restore testing workflows using AWS Step Functions. Restore tests spin up ephemeral database instances or storage clusters in isolated QA VPCs, verify data schema and records, and tear them down, logging validation metrics to a central compliance dashboard.
+* **SG-4: Identity Threat Detection**:
+  * *Remediation*: Deploy **AWS IAM Access Analyzer** continuously at the organization root. Configure real-time CloudTrail event filters to flag anomalous IAM role behavior (e.g., unexpected credential usage geographical locations, brute-force role assumption attempts, or access pattern anomalies identified by GuardDuty).
+* **SG-5: Module Registry Supply Chain Security**:
+  * *Remediation*: Restrict terraform module consumption to a private, audited Organization Module Registry. Configure **Renovate** to only pull from our internal registry namespace, and verify hashes/signatures of external upstream dependencies before mirroring them locally.
+* **SG-6: Incident Response (IR) Automation**:
+  * *Remediation*: Establish automated containment playbooks using **AWS Systems Manager (SSM) Incident Manager**. On detection of critical workload compromise, trigger automation to isolate EKS pods using network policies, revoke compromised IAM credentials, snapshot volumes for forensics, and route alerts to paging services.
+
+### B. Enterprise Architecture Gaps
+
+* **EG-1: Standardized Application Onboarding & Offboarding Lifecycle**:
+  * *Remediation*: Build a centralized App Lifecycle pipeline in the Developer Portal (Option C). Onboarding provisions a dedicated repository, registers Terraform workspace/state components, and configures IAM roles. Offboarding triggers automated teardown plans, marks resources as inactive, halts billing allocation tags, and removes DNS and state histories to prevent "zombie infrastructure" sprawl.
+* **EG-2: FinOps Chargeback/Showback Model**:
+  * *Remediation*: Implement automated monthly showback reports mapping AWS and Kubernetes namespaces (via Kubecost) costs directly to Line of Business (LOB) budget codes. Deploy budget threshold alerts that automatically notify application owners and trigger approvals if forecasted spend exceeds allocated limits.
+* **EG-3: Environment Parity & Promotion Gates**:
+  * *Remediation*: Define mandatory environment mirrors: Staging environments must match Production structural footprints. Require automated performance and integration tests to pass in Staging before a promotion gating PR can be approved and executed in Production.
+* **EG-4: Platform API & Service Versioning Lifecycle**:
+  * *Remediation*: Platform services (e.g., central DNS structures, service discovery interfaces, SSM parameters) must version interfaces using semantic namespaces. Implement a minimum 90-day deprecation notice policy for platform breaking changes, with automated tooling monitoring downstream app telemetry.
+* **EG-5: Disaster Recovery (DR) Testing Cadence**:
+  * *Remediation*: Commit to a biannual DR failover drill ("Game Days"). Validate the 5-minute active-standby failover RTO/RPO target claims through simulated regional outages under load, adjusting synchronization window buffers based on metrics.
+* **EG-6: Vendor Lock-in Exit Strategy Document**:
+  * *Remediation*: Document lock-in profiles (Control Tower, EKS, Secrets Manager) and outline a generic container/data exit path (e.g. migration to self-hosted K8s or vanilla cloud services) inside the architectural records to satisfy Enterprise Risk assessments.
+* **EG-7: Data Lifecycle & Archiving Mechanics**:
+  * *Remediation*: Define base blueprint patterns: enforce S3 Lifecycle policies (transitioning to Glacier Instant Retrieval after 30 days, deep archive after 90, and permanent deletion after compliance limits). Databases use automated snapshot export to secure, cold-storage S3 buckets.
+* **EG-8: Developer Collaboration & Exception Model**:
+  * *Remediation*: Establish an InnerSource contribution governance model. App teams can submit pull requests to the central golden modules. If a specialized resource is required, teams submit an architectural variance request through the Developer Portal, automatically routing to the platform core team for review.
+
+---
+
+## 7. Excluded or Partially Addressed Review Feedback
 
 To maintain scope boundaries matching the target company model, the following review suggestions were omitted or deferred:
 
@@ -257,7 +297,7 @@ To maintain scope boundaries matching the target company model, the following re
 
 ---
 
-## 7. Summary of how the Real-World Organization Approaches this
+## 8. Summary of how the Real-World Organization Approaches this
 
 To scale to 300+ applications:
 1. **Never use a single environment folder** to orchestrate VPCs, Databases, and Compute together.
@@ -267,7 +307,7 @@ To scale to 300+ applications:
 
 ---
 
-## 8. Change Log
+## 9. Change Log
 
 | Version | Date | Author | Changes |
 | :--- | :--- | :--- | :--- |
@@ -276,3 +316,4 @@ To scale to 300+ applications:
 | 1.2.0 | 2026-06-15 | Architect | Updated document based on review feedback. Addressed S1-S9 (Secrets, Boundaries, Encryption MRK, Network Inspection) and E1-E10 (Observability, DR/BCP, FinOps, CDKTF alternative, and GitOps day-one strategy). |
 | 1.3.0 | 2026-06-15 | Architect | Version bump to 1.3.0. Added Section 6 (Excluded/Partially Addressed Feedback Decisions) with clear rationales for ignoring multi-cloud (E9), RACI duplication (E5), detailed data retention limits (E6), and DX metric pipelines (E8). Updated Change Log. |
 | 1.4.0 | 2026-06-15 | Lead Architect | Version bump to 1.4.0. Fully addressed Security and EA gaps: Cert/PKI lifecycle (GAP-1), container supply chain (GAP-2), incident response (GAP-3), secrets replication (GAP-4), WAF pipelines (GAP-5), data residency (GAP-6), service mesh (GAP-7), change management (GAP-8), tenant isolation (GAP-9), module testing (GAP-10), Renovate dependencies (GAP-11). Incorporated developer sandboxes and InnerSource contribution models. Updated Change Log. |
+| 1.5.0 | 2026-06-15 | Lead Architect | Version bump to 1.5.0. Incorporated analysis of Security and Enterprise Architecture gaps (SG-1 through SG-6 and EG-1 through EG-8) including remediations for container supply chains, threat detection, backup validation, app lifecycles, and environment parity. Updated Change Log. |
