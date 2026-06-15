@@ -92,6 +92,30 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
+# Elastic IP and NAT Gateway for private subnet outbound access
+# In multi-account setups, egress is handled by the central Shared Services Egress VPC (ADR-02).
+# For standalone environments (dev/staging without TGW), a local NAT GW provides outbound access.
+resource "aws_eip" "nat" {
+  count  = var.tgw_id == "" ? 1 : 0
+  domain = "vpc"
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-nat-eip"
+    Environment = var.environment
+  }
+}
+
+resource "aws_nat_gateway" "main" {
+  count         = var.tgw_id == "" ? 1 : 0
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-nat-gw"
+    Environment = var.environment
+  }
+}
+
 # Route Tables
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
@@ -109,6 +133,14 @@ resource "aws_route_table" "public" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
+
+  dynamic "route" {
+    for_each = var.tgw_id == "" ? [1] : []
+    content {
+      cidr_block     = "0.0.0.0/0"
+      nat_gateway_id = aws_nat_gateway.main[0].id
+    }
+  }
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-private-rt"

@@ -71,11 +71,14 @@ resource "aws_iam_instance_profile" "eks_node" {
   role = aws_iam_role.eks_node.name
 }
 
-# GitHub Actions OIDC Trust Role (Shared OIDC assumption)
-# In standard sandboxes, the provider might already exist, so we only create the role
-data "aws_iam_openid_connect_provider" "github" {
-  # Look up GitHub OIDC Provider if it already exists globally, otherwise fall back to a local stub target
-  url = "https://token.actions.githubusercontent.com"
+# GitHub OIDC Provider for GitHub Actions
+resource "aws_iam_openid_connect_provider" "github" {
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c58a3a3058c095a585bc79e12b9d0b32b7b0fb0"
+  ]
 }
 
 resource "aws_iam_role" "github_actions" {
@@ -87,7 +90,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = data.aws_iam_openid_connect_provider.github.arn
+          Federated = aws_iam_openid_connect_provider.github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -111,17 +114,73 @@ resource "aws_iam_role_policy" "github_actions_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "ECR"
         Effect = "Allow"
         Action = [
-          "ec2:*",
-          "s3:*",
-          "rds:*",
-          "eks:*",
-          "iam:*",
-          "kms:*",
-          "ssm:GetParameter*"
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:CompleteLayerUpload",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "S3Deploy"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.project_name}-${var.environment}-*",
+          "arn:aws:s3:::${var.project_name}-${var.environment}-*/*"
+        ]
+      },
+      {
+        Sid    = "EKSDescribe"
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster"
+        ]
+        Resource = "arn:aws:eks:${var.aws_region}:*:cluster/${var.project_name}-${var.environment}-*"
+      },
+      {
+        Sid    = "SSMParameters"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = "arn:aws:ssm:${var.aws_region}:*:parameter/${var.project_name}/${var.environment}/*"
+      },
+      {
+        Sid    = "KMSDecrypt"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:ReEncrypt*"
+        ]
+        Resource = "arn:aws:kms:${var.aws_region}:*:key/*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = [
+              "s3.${var.aws_region}.amazonaws.com",
+              "ssm.${var.aws_region}.amazonaws.com"
+            ]
+          }
+        }
+      },
+      {
+        Sid      = "PassRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = "arn:aws:iam::*:role/${var.project_name}-${var.environment}-*"
       }
     ]
   })

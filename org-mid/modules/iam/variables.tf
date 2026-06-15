@@ -20,3 +20,9 @@ variable "github_org" {
   description = "GitHub organization name for OIDC configuration."
   default     = "company-mid-org"
 }
+
+variable "aws_region" {
+  type        = string
+  description = "The AWS region for resource ARN construction."
+  default     = "us-east-1"
+}

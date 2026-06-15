@@ -60,6 +60,33 @@ resource "aws_s3_bucket_public_access_block" "main" {
   restrict_public_buckets = true
 }
 
+# Bucket policy: enforce HTTPS-only and deny unencrypted requests
+resource "aws_s3_bucket_policy" "main" {
+  for_each = aws_s3_bucket.main
+
+  bucket = each.value.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "DenyInsecureConnections"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          each.value.arn,
+          "${each.value.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   bucket = aws_s3_bucket.main["app_logs"].id
 

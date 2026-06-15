@@ -20,6 +20,11 @@ variable "vpc_id" {
   description = "The ID of the custom VPC."
 }
 
+variable "vpc_cidr" {
+  type        = string
+  description = "The CIDR block of the VPC for internal traffic rules."
+}
+
 variable "kms_key_rotation_enabled" {
   type        = bool
   description = "Flag to enable KMS CMK automatic key rotation."

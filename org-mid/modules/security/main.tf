@@ -7,7 +7,7 @@
 # KMS Customer Managed Key
 resource "aws_kms_key" "main" {
   description             = "Main Customer Managed Key for ${var.project_name}-${var.environment}"
-  deletion_window_in_days = 7
+  deletion_window_in_days = 30
   enable_key_rotation     = var.kms_key_rotation_enabled
 
   tags = {
@@ -55,19 +55,27 @@ resource "aws_security_group" "app" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "Allow traffic from public ALB edge SG"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
+    description     = "Allow inbound app traffic from public ALB edge SG (ports 8080, 8443)"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
     security_groups = [aws_security_group.edge.id]
   }
 
   ingress {
-    description = "Allow internal VPC range traffic"
+    description     = "Allow inbound gRPC traffic from public ALB edge SG"
+    from_port       = 50051
+    to_port         = 50051
+    protocol        = "tcp"
+    security_groups = [aws_security_group.edge.id]
+  }
+
+  ingress {
+    description = "Allow internal VPC traffic for inter-service communication"
     from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["10.0.0.0/8"]
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
   }
 
   egress {
@@ -90,10 +98,42 @@ resource "aws_security_group" "data" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "Allow DB/Cache ingress from App SG"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
+    description     = "Allow PostgreSQL (Aurora) from App SG"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "Allow Redis from App SG"
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "Allow EFS NFS from App SG"
+    from_port       = 2049
+    to_port         = 2049
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "Allow MSK Kafka from App SG"
+    from_port       = 9092
+    to_port         = 9092
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "Allow MSK Kafka IAM (TLS) from App SG"
+    from_port       = 9098
+    to_port         = 9098
+    protocol        = "tcp"
     security_groups = [aws_security_group.app.id]
   }
 
@@ -111,7 +151,7 @@ resource "aws_security_group" "data" {
   }
 }
 
-# AWS WAF Web ACL (Simplified Sandbox configuration)
+# AWS WAF Web ACL with managed rule groups
 resource "aws_wafv2_web_acl" "main" {
   name        = "${var.project_name}-${var.environment}-waf-acl"
   description = "WAF for ${var.project_name}-${var.environment} edge endpoints"
@@ -119,6 +159,72 @@ resource "aws_wafv2_web_acl" "main" {
 
   default_action {
     allow {}
+  }
+
+  rule {
+    name     = "AWS-AWSManagedRulesCommonRuleSet"
+    priority = 1
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_name}-${var.environment}-waf-common-rule"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWS-AWSManagedRulesSQLiRuleSet"
+    priority = 2
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesSQLiRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_name}-${var.environment}-waf-sqli-rule"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWS-AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 3
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_name}-${var.environment}-waf-bad-inputs-rule"
+      sampled_requests_enabled   = true
+    }
   }
 
   visibility_config {

@@ -1,8 +1,23 @@
 # ==============================================================================
 # Module: secrets
 # File: main.tf
-# Description: Implements AWS Secrets Manager resources.
+# Description: Implements AWS Secrets Manager resources with auto-generated credentials.
 # ==============================================================================
+
+terraform {
+  required_providers {
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+  }
+}
+
+resource "random_password" "db_master" {
+  length           = 24
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
 
 resource "aws_secretsmanager_secret" "db_secret" {
   name                    = "${var.project_name}-${var.environment}-db-creds"
@@ -20,9 +35,9 @@ resource "aws_secretsmanager_secret_version" "db_secret_val" {
   secret_id = aws_secretsmanager_secret.db_secret.id
   secret_string = jsonencode({
     username = "dbadmin"
-    password = "SuperSecurePassword123!"
+    password = random_password.db_master.result
     engine   = "postgres"
-    host     = "placeholder"
+    host     = "placeholder" # Update with actual RDS/Aurora endpoint after compute module creation
     port     = 5432
   })
 }
