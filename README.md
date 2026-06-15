@@ -1,59 +1,53 @@
 # Terraform Workspace
 
-Welcome to the Terraform practice workspace. This repository contains the Infrastructure-as-Code (IaC) configuration for managing core AWS workloads for **Organization Small**.
+Welcome to the Terraform practice workspace. This repository contains Infrastructure-as-Code (IaC) configurations for managing AWS workloads across two organization profiles.
 
-## Directory Structure
+## Organizations
 
-The project is structured under the [org-small](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small) directory:
+### [org-mid](org-mid/) — Mid-Size Company
+| Area | Details |
+|---|---|
+| **Focus** | Multi-account AWS Organizations with TGW, SCPs, and modular infrastructure for ~100-500 employee companies |
+| **Environments** | `dev` (single), designed for `staging` and `prod` extension |
+| **Modules** | [networking](org-mid/modules/networking), [security](org-mid/modules/security), [iam](org-mid/modules/iam), [organizations](org-mid/modules/organizations), [s3](org-mid/modules/s3), [secrets](org-mid/modules/secrets) |
+| **Design** | [company-mid.md](org-mid/company-mid.md) — 576-line architecture document covering 5 workload families, multi-account strategy, DR, and cost projections |
 
-*   **[environments](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/environments)**: Environment-specific configurations:
-    *   **[dev](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/environments/dev)**: Cost-optimized single-zone deployment.
-    *   **[staging](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/environments/staging)**: Pre-production scale simulation environment.
-    *   **[prod](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/environments/prod)**: Highly available, Multi-AZ production environment.
-*   **[modules](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules)**: Reusable Terraform modules:
-    *   [networking](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/networking): VPC, subnets, NAT, and routing.
-    *   [security](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/security): Security Groups, NACLs, custom KMS keys, and ACM SSL certificates.
-    *   [iam](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/iam): IAM Roles and Instance Profiles.
-    *   [ec2-legacy](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/ec2-legacy): Active + standby VM instances.
-    *   [asg-api](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/asg-api): Auto-scaled stateless tier with Application Load Balancer.
-    *   [eks](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/eks): Private EKS cluster and node groups.
-    *   [rds](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/rds): PostgreSQL database.
-    *   [redis](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/redis): ElastiCache Redis cluster.
-    *   [efs](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/efs): Shared filesystem.
-    *   [s3](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/s3): Secure object storage.
-    *   [secrets](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/secrets): AWS Secrets Manager configurations.
-    *   [backup](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/backup): Backup vaults and rules.
-    *   [monitoring](file:///Users/prashantkumar/MyDocument/workspace/openclaw-sandbox/workspace/terraform-ws/org-small/modules/monitoring): CloudWatch dashboards and alerts.
+**Getting started:**
+```bash
+cd org-mid/environments/dev
+terraform init
+terraform plan
+```
+
+### [org-small](org-small/) — Small Company
+| Area | Details |
+|---|---|
+| **Focus** | Single-account 3-tier VPC with SSM-only access for ~10-50 employee companies |
+| **Environments** | `dev`, `staging`, `prod` |
+| **Modules** | 13 modules covering EC2, ASG, EKS, RDS, Redis, EFS, S3, backup, monitoring |
+| **Design** | [company-small.md](org-small/company-small.md) — detailed architecture with 3 workload patterns |
+
+**Getting started:**
+```bash
+cd org-small/environments/dev
+terraform init
+terraform plan
+```
 
 ## Requirements
 
-*   Terraform `>= 1.5.0`
-*   AWS Provider `>= 5.0`
+- Terraform `>= 1.5.0`
+- AWS Provider `>= 5.0`
 
-## Getting Started
+## Common Operations
 
-1. Navigate to the desired environment directory (e.g., `dev`):
-   ```bash
-   cd org-small/environments/dev
-   ```
-2. Initialize the backend and provider plugins:
-   ```bash
-   terraform init
-   ```
-3. Format and validate the configuration:
-   ```bash
-   terraform fmt -recursive
-   terraform validate
-   ```
-4. Preview changes:
-   ```bash
-   terraform plan
-   ```
-5. Apply the planned infrastructure changes:
-   ```bash
-   terraform apply
-   ```
+```bash
+terraform fmt -recursive
+terraform validate
+terraform plan
+terraform apply
+```
 
 ## Maintainers
 
-*   **Terraform Practice** (prashant@chandrakar.in)
+- **Terraform Practice** (prashant@chandrakar.in)
