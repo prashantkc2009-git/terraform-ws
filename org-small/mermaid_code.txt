@@ -1,0 +1,62 @@
+graph TD
+    %% Internet Access
+    Internet((Internet)) <--> ALB_SG[ALB Security Group]
+    
+    subgraph VPC [AWS VPC: 10.0.0.0/16]
+        
+        %% Public Subnet
+        subgraph Public_Subnets [Public Subnets: 10.0.1.0/24 & 10.0.2.0/24]
+            ALB[Application Load Balancer]
+            NAT[NAT Gateway]
+        end
+        
+        %% Private Subnet
+        subgraph Private_Subnets [Private Subnets: 10.0.11.0/24 & 10.0.12.0/24]
+            App_SG[App Security Group]
+            
+            subgraph Workload_A [Workload A: Legacy Monolith]
+                EC2_Active[Active VM: t3.medium/nano]
+                EC2_Standby[Standby VM: t3.small - Stopped]
+            end
+            
+            subgraph Workload_B [Workload B: Stateless API]
+                ASG[Auto Scaling Group: t3.large/micro]
+            end
+            
+            subgraph Workload_C [Workload C: Kubernetes]
+                EKS_Cluster[EKS Cluster]
+                EKS_OD[On-Demand Nodes: t3.medium/small]
+                EKS_Spot[Spot Nodes: t3.medium/small]
+            end
+        end
+
+        %% Data Subnet
+        subgraph Data_Subnets [Data Subnets: 10.0.21.0/24 & 10.0.22.0/24]
+            Data_SG[Data Security Group]
+            RDS[(RDS PostgreSQL)]
+            Redis[(ElastiCache Redis)]
+            EFS{{"EFS (Shared Files)"}}
+        end
+        
+        %% VPC Endpoints
+        SSM_Endpoints[SSM VPC Interface Endpoints]
+        S3_Gateway[S3 VPC Gateway Endpoint]
+    end
+
+    %% Connections
+    Internet <--> NAT
+    ALB_SG <--> ALB
+    ALB -->|Port 8080| App_SG
+    
+    %% Compute internal traffic to storage/data
+    App_SG -->|Port 5432| Data_SG
+    App_SG -->|Port 6379| Data_SG
+    App_SG -->|Port 2049| Data_SG
+    
+    Data_SG --> RDS
+    Data_SG --> Redis
+    Data_SG --> EFS
+    
+    %% SSM connectivity
+    App_SG -->|Port 443| SSM_Endpoints
+    App_SG --> S3_Gateway
