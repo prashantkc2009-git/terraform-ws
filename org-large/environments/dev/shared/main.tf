@@ -98,3 +98,46 @@ module "data_lifecycle" {
   log_archive_bucket_id = module.observability.log_archive_bucket_id
   kms_key_arn          = module.kms.kms_key_arn
 }
+
+# SSM Parameter exports for app consumption
+resource "aws_ssm_parameter" "vpc_id" {
+  name  = "/company-large/${var.environment}/network/vpc_id"
+  type  = "String"
+  value = module.vpc_base.vpc_id
+}
+
+resource "aws_ssm_parameter" "public_subnet_ids" {
+  name  = "/company-large/${var.environment}/network/public_subnet_ids"
+  type  = "StringList"
+  value = join(",", module.vpc_base.public_subnet_ids)
+}
+
+resource "aws_ssm_parameter" "private_subnet_ids" {
+  name  = "/company-large/${var.environment}/network/private_subnet_ids"
+  type  = "StringList"
+  value = join(",", module.vpc_base.private_subnet_ids)
+}
+
+resource "aws_ssm_parameter" "kms_key_arn" {
+  name  = "/company-large/${var.environment}/security/kms_key_arn"
+  type  = "String"
+  value = module.kms.kms_key_arn
+}
+
+resource "aws_ssm_parameter" "eks_cluster_name" {
+  name  = "/company-large/${var.environment}/eks/cluster_name"
+  type  = "String"
+  value = module.eks_cluster_blueprint.eks_cluster_name
+}
+
+resource "aws_ssm_parameter" "eks_cluster_endpoint" {
+  name  = "/company-large/${var.environment}/eks/cluster_endpoint"
+  type  = "String"
+  value = module.eks_cluster_blueprint.eks_cluster_endpoint
+}
+
+resource "aws_ssm_parameter" "eks_cluster_ca" {
+  name  = "/company-large/${var.environment}/eks/cluster_ca"
+  type  = "String"
+  value = module.eks_cluster_blueprint.eks_cluster_certificate_authority_data
+}
